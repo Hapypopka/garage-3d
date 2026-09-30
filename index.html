@@ -169,7 +169,8 @@ import { Sky } from "three/addons/objects/Sky.js";
 import { COLORS, makeMaterials, setColor, buildGarage, buildCar, calcPrice, DEFAULT_PRICES } from "./garage.js";
 
 const tg = window.Telegram?.WebApp;
-const inTg = !!(tg && tg.initData);
+// из кнопки клавиатуры initData пустой — ориентируемся на платформу
+const inTg = !!(tg && tg.platform && tg.platform !== "unknown");
 if (inTg) {
   document.body.classList.add("tg");
   tg.ready(); tg.expand();
