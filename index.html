@@ -368,7 +368,8 @@ $("t_ar").onclick = () => {
   haptic("medium");
   const p = new URLSearchParams({ w: state.w, l: state.l, h: state.h, gate: state.gate, color: state.color, open: ui.openTarget ? 1 : 0, car: ui.car ? 1 : 0 });
   const url = new URL("ar.html?" + p, location.href).href;
-  if (inTg) tg.openLink(url, { try_instant_view: false }); else location.href = url;
+  // во встроенном браузере Telegram на Android нет WebXR — просим открыть в Chrome
+  if (inTg) tg.openLink(url, { try_instant_view: false, try_browser: "chrome" }); else location.href = url;
 };
 
 $("grab").onclick = () => { document.body.classList.toggle("collapsed"); haptic(); };

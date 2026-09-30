@@ -165,9 +165,20 @@ const go = $("go");
     }
     return;
   }
+  const android = /Android/.test(ua);
+  if (android && (/; wv\)/.test(ua) || !/Chrome\/\d+/.test(ua))) {
+    // встроенный браузер (Telegram и т.п.) — перекидываем в Chrome
+    const a = document.createElement("a");
+    a.className = "big";
+    a.href = `intent://${location.host}${location.pathname}${location.search}#Intent;scheme=https;package=com.android.chrome;end`;
+    a.textContent = "📷 Открыть в Chrome для AR";
+    go.replaceWith(a);
+    $("note").textContent = "Во встроенном браузере камера для AR недоступна.";
+    return;
+  }
   go.textContent = "AR недоступен на этом устройстве";
-  $("note").textContent = /Android/.test(ua)
-    ? "Откройте ссылку в Chrome и установите «Сервисы Google Play для AR»."
+  $("note").textContent = android
+    ? "Нужны Chrome и «Сервисы Google Play для AR» — обновите их в Google Play."
     : "Откройте эту страницу с телефона — iPhone или Android.";
 })();
 
