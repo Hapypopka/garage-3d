@@ -2,339 +2,443 @@
 <html lang="ru">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>Гараж 3D</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
 <style>
   :root {
-    --bg: #0f1115; --card: #181b22; --text: #f2f3f5; --hint: #8b919e;
-    --accent: #ff8a1f; --accent2: #ffb35c; --line: #262a33;
+    --bg: #0c0e12; --card: rgba(20,23,29,.92); --text: #f3f4f6; --hint: #8d93a0; --line: rgba(255,255,255,.08);
+    --accent: #ff8a1f; --accent2: #ffc061; --glass: rgba(14,16,20,.55);
+    --sceneH: 58vh;
   }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
-    font: 15px/1.35 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; overflow: hidden; }
-  #scene { position: fixed; inset: 0 0 auto 0; height: 52vh; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); overflow: hidden;
+    font: 15px/1.35 Manrope, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+  button { font: inherit; color: inherit; }
+
+  #scene { position: fixed; left: 0; right: 0; top: 0; height: var(--sceneH); transition: height .45s cubic-bezier(.2,.8,.2,1); }
   #scene canvas { display: block; touch-action: none; }
-  .badge { position: fixed; top: 12px; left: 12px; padding: 6px 10px; border-radius: 10px;
-    background: rgba(15,17,21,.6); backdrop-filter: blur(8px); font-size: 12px; color: var(--hint); }
-  .badge b { color: var(--text); font-weight: 600; }
-  #panel { position: fixed; left: 0; right: 0; bottom: 0; top: calc(52vh - 18px);
-    background: var(--card); border-radius: 20px 20px 0 0; padding: 16px 16px 90px; overflow-y: auto;
-    box-shadow: 0 -10px 30px rgba(0,0,0,.35); }
-  .price { text-align: center; margin-bottom: 14px; }
-  .price .lbl { color: var(--hint); font-size: 12px; text-transform: uppercase; letter-spacing: .08em; }
-  .price .val { font-size: 28px; font-weight: 800; letter-spacing: -.02em;
-    background: linear-gradient(90deg, var(--accent), var(--accent2)); -webkit-background-clip: text; color: transparent; }
-  .price .sub { color: var(--hint); font-size: 12px; }
-  .row { margin: 12px 0 16px; }
-  .row .top { display: flex; justify-content: space-between; margin-bottom: 8px; }
-  .row .top span:last-child { font-weight: 700; font-variant-numeric: tabular-nums; }
-  input[type=range] { -webkit-appearance: none; appearance: none; width: 100%; height: 6px; border-radius: 3px;
-    background: linear-gradient(90deg, var(--accent) var(--p,50%), var(--line) var(--p,50%)); outline: none; }
-  input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 26px; height: 26px; border-radius: 50%;
-    background: #fff; box-shadow: 0 2px 8px rgba(0,0,0,.4), 0 0 0 4px rgba(255,138,31,.35); }
-  input[type=range]::-moz-range-thumb { width: 26px; height: 26px; border: 0; border-radius: 50%; background: #fff; }
-  h3 { font-size: 12px; color: var(--hint); text-transform: uppercase; letter-spacing: .08em; margin: 20px 0 10px; font-weight: 600; }
-  .chips { display: flex; gap: 8px; flex-wrap: wrap; }
-  .chip { flex: 1 1 0; min-width: 90px; padding: 10px 8px; border-radius: 12px; border: 1.5px solid var(--line);
-    background: transparent; color: var(--text); font: inherit; font-size: 13px; text-align: center; cursor: pointer; }
-  .chip small { display: block; color: var(--hint); font-size: 11px; margin-top: 2px; }
-  .chip.on { border-color: var(--accent); background: rgba(255,138,31,.12); }
-  .colors { display: flex; gap: 12px; flex-wrap: wrap; }
-  .sw { width: 38px; height: 38px; border-radius: 50%; border: 3px solid transparent; cursor: pointer;
-    box-shadow: inset 0 0 0 1px rgba(255,255,255,.15); }
-  .sw.on { border-color: #fff; }
-  .toggle { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px;
-    border: 1.5px solid var(--line); border-radius: 12px; cursor: pointer; }
-  .toggle.on { border-color: var(--accent); background: rgba(255,138,31,.12); }
-  .toggle small { color: var(--hint); display: block; font-size: 12px; }
-  .sw2 { width: 44px; height: 26px; border-radius: 13px; background: var(--line); position: relative; flex: none; transition: .2s; }
-  .sw2::after { content: ""; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: #fff; transition: .2s; }
-  .toggle.on .sw2 { background: var(--accent); }
-  .toggle.on .sw2::after { left: 21px; }
-  #send { position: fixed; left: 16px; right: 16px; bottom: 16px; padding: 16px; border: 0; border-radius: 14px;
-    font: inherit; font-weight: 700; color: #111; background: linear-gradient(90deg, var(--accent), var(--accent2));
-    box-shadow: 0 8px 24px rgba(255,138,31,.35); cursor: pointer; }
+  body.collapsed { --sceneH: calc(100vh - 128px); }
+
+  .brand { position: fixed; top: 12px; left: 12px; z-index: 5; padding: 8px 12px; border-radius: 14px;
+    background: var(--glass); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); border: 1px solid var(--line); }
+  .brand .t { font-weight: 800; font-size: 13px; letter-spacing: .04em; }
+  .brand .t span { color: var(--accent); }
+  .brand .s { color: var(--hint); font-size: 11px; margin-top: 1px; }
+
+  .tools { position: fixed; right: 12px; top: 12px; z-index: 5; display: flex; flex-direction: column; gap: 8px; }
+  .tool { width: 44px; height: 44px; border-radius: 14px; border: 1px solid var(--line); background: var(--glass);
+    backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); display: grid; place-items: center; cursor: pointer; transition: .2s; }
+  .tool svg { width: 22px; height: 22px; stroke: #fff; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  .tool.on { background: rgba(255,138,31,.9); border-color: transparent; }
+  .tool.ar { width: auto; padding: 0 12px; gap: 6px; grid-auto-flow: column; font-weight: 700; font-size: 13px;
+    background: linear-gradient(135deg, #7b5cff, #2fa8ff); border: 0; box-shadow: 0 6px 20px rgba(80,120,255,.45); }
+
+  .dim { padding: 3px 8px; border-radius: 8px; background: rgba(10,12,16,.72); color: #fff; font-size: 12px; font-weight: 700;
+    border: 1px solid rgba(255,255,255,.15); white-space: nowrap; pointer-events: none; }
+  body.nodims .dim { display: none; }
+
+  #sheet { position: fixed; left: 0; right: 0; bottom: 0; top: calc(var(--sceneH) - 22px); z-index: 6;
+    background: var(--card); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+    border-radius: 24px 24px 0 0; border-top: 1px solid var(--line);
+    transition: top .45s cubic-bezier(.2,.8,.2,1); display: flex; flex-direction: column; }
+  .grab { padding: 10px 0 4px; display: grid; place-items: center; cursor: pointer; flex: none; }
+  .grab i { width: 40px; height: 5px; border-radius: 3px; background: rgba(255,255,255,.22); }
+  .scroll { overflow-y: auto; padding: 4px 18px 110px; flex: 1; }
+
+  .price { display: flex; align-items: flex-end; justify-content: space-between; gap: 10px; margin-bottom: 6px; }
+  .price .lbl { color: var(--hint); font-size: 11px; text-transform: uppercase; letter-spacing: .1em; font-weight: 700; }
+  .price .val { font-size: 25px; font-weight: 800; letter-spacing: -.02em; white-space: nowrap;
+    background: linear-gradient(90deg, var(--accent), var(--accent2)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .price .area { text-align: right; color: var(--hint); font-size: 12px; white-space: nowrap; }
+  .price .area b { display: block; color: var(--text); font-size: 18px; }
+
+  h3 { font-size: 11px; color: var(--hint); text-transform: uppercase; letter-spacing: .1em; margin: 22px 0 10px; font-weight: 700; }
+  .row { margin: 14px 0; }
+  .row .top { display: flex; justify-content: space-between; margin-bottom: 10px; font-weight: 600; }
+  .row .top b { font-variant-numeric: tabular-nums; }
+  input[type=range] { -webkit-appearance: none; appearance: none; width: 100%; height: 6px; border-radius: 3px; margin: 0;
+    background: linear-gradient(90deg, var(--accent) var(--p,50%), rgba(255,255,255,.1) var(--p,50%)); outline: none; }
+  input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 28px; height: 28px; border-radius: 50%;
+    background: #fff; box-shadow: 0 2px 10px rgba(0,0,0,.5), 0 0 0 5px rgba(255,138,31,.28); }
+  input[type=range]::-moz-range-thumb { width: 28px; height: 28px; border: 0; border-radius: 50%; background: #fff; }
+
+  .chips { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .chip { padding: 12px 6px 10px; border-radius: 14px; border: 1.5px solid var(--line); background: rgba(255,255,255,.03);
+    font-size: 13px; font-weight: 700; text-align: center; cursor: pointer; transition: .2s; }
+  .chip svg { width: 34px; height: 26px; display: block; margin: 0 auto 6px; stroke: currentColor; fill: none; stroke-width: 1.6; opacity: .85; }
+  .chip small { display: block; color: var(--hint); font-size: 11px; font-weight: 600; margin-top: 2px; }
+  .chip.on { border-color: var(--accent); background: rgba(255,138,31,.12); color: #fff; }
+
+  .colors { display: flex; gap: 10px; flex-wrap: wrap; }
+  .sw { width: 40px; height: 40px; border-radius: 50%; cursor: pointer; position: relative; transition: transform .2s;
+    box-shadow: inset 0 -6px 10px rgba(0,0,0,.35), inset 0 4px 8px rgba(255,255,255,.2); }
+  .sw.on { transform: scale(1.08); }
+  .sw.on::after { content: ""; position: absolute; inset: -5px; border-radius: 50%; border: 2px solid var(--accent); }
+  .cname { color: var(--hint); font-size: 12px; margin-top: 8px; }
+
+  .opt { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px; border-radius: 14px;
+    border: 1.5px solid var(--line); background: rgba(255,255,255,.03); cursor: pointer; transition: .2s; }
+  .opt.on { border-color: var(--accent); background: rgba(255,138,31,.12); }
+  .opt b { display: block; font-weight: 700; }
+  .opt small { color: var(--hint); font-size: 12px; }
+  .tg2 { width: 46px; height: 28px; border-radius: 14px; background: rgba(255,255,255,.14); position: relative; flex: none; transition: .2s; }
+  .tg2::after { content: ""; position: absolute; top: 3px; left: 3px; width: 22px; height: 22px; border-radius: 50%; background: #fff; transition: .2s; }
+  .opt.on .tg2 { background: var(--accent); } .opt.on .tg2::after { left: 21px; }
+
+  .incl { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 12px; color: var(--hint); font-size: 12.5px; }
+  .incl div::before { content: "✓ "; color: var(--accent); font-weight: 800; }
+
+  #send { position: fixed; left: 16px; right: 16px; bottom: max(16px, env(safe-area-inset-bottom)); z-index: 7; padding: 17px; border: 0;
+    border-radius: 16px; font-weight: 800; color: #1a1206; background: linear-gradient(90deg, var(--accent), var(--accent2));
+    box-shadow: 0 10px 30px rgba(255,138,31,.4); cursor: pointer; }
   body.tg #send { display: none; }
+
+  #loader { position: fixed; inset: 0; z-index: 20; background: var(--bg); display: grid; place-items: center; transition: opacity .6s; }
+  #loader.hide { opacity: 0; pointer-events: none; }
+  #loader .ring { width: 46px; height: 46px; border-radius: 50%; border: 3px solid rgba(255,255,255,.1); border-top-color: var(--accent);
+    animation: spin 1s linear infinite; margin: 0 auto 14px; }
+  #loader p { color: var(--hint); font-size: 13px; margin: 0; text-align: center; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .toast { position: fixed; left: 50%; top: 70px; transform: translate(-50%, -10px); z-index: 30; opacity: 0; transition: .3s;
+    background: rgba(14,16,20,.85); border: 1px solid var(--line); padding: 10px 14px; border-radius: 12px; font-size: 13px; pointer-events: none; }
+  .toast.show { opacity: 1; transform: translate(-50%, 0); }
 </style>
 </head>
 <body>
+<div id="loader"><div><div class="ring"></div><p>Строим ваш гараж…</p></div></div>
 <div id="scene"></div>
-<div class="badge">Площадь <b id="area">24</b> м² · крутите пальцем</div>
 
-<div id="panel">
-  <div class="price">
-    <div class="lbl">Примерная стоимость</div>
-    <div class="val" id="price">—</div>
-    <div class="sub">под ключ: фундамент, каркас, профлист, ворота, монтаж</div>
-  </div>
+<div class="brand"><div class="t">SDV <span>·</span> ГАРАЖИ</div><div class="s">соберите свой — цена сразу</div></div>
 
-  <div class="row"><div class="top"><span>Ширина</span><span id="wv"></span></div>
-    <input type="range" id="w" min="3" max="10" step="0.5" value="4"></div>
-  <div class="row"><div class="top"><span>Длина</span><span id="lv"></span></div>
-    <input type="range" id="l" min="4" max="14" step="0.5" value="6"></div>
-  <div class="row"><div class="top"><span>Высота стен</span><span id="hv"></span></div>
-    <input type="range" id="h" min="2.2" max="4.5" step="0.1" value="3"></div>
+<div class="tools">
+  <button class="tool" id="t_gate" title="Открыть ворота"><svg viewBox="0 0 24 24"><path d="M3 21V9l9-5 9 5v12"/><path d="M7 21v-8h10v8"/><path d="M7 16h10"/></svg></button>
+  <button class="tool" id="t_night" title="Ночь"><svg viewBox="0 0 24 24"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg></button>
+  <button class="tool on" id="t_dims" title="Размеры"><svg viewBox="0 0 24 24"><path d="M3 17 17 3l4 4L7 21z"/><path d="m7 13 2 2M10 10l2 2M13 7l2 2"/></svg></button>
+  <button class="tool" id="t_car" title="Машина"><svg viewBox="0 0 24 24"><path d="M5 17h14M3 17v-4l2-5h14l2 5v4"/><circle cx="7.5" cy="17" r="2"/><circle cx="16.5" cy="17" r="2"/></svg></button>
+  <button class="tool ar" id="t_ar"><svg viewBox="0 0 24 24"><path d="M12 2 3 7v10l9 5 9-5V7z"/><path d="M3 7l9 5 9-5M12 12v10"/></svg>AR</button>
+</div>
 
-  <h3>Ворота</h3>
-  <div class="chips" id="gates">
-    <button class="chip on" data-g="swing">Распашные<small id="g_swing"></small></button>
-    <button class="chip" data-g="sect">Секционные<small id="g_sect"></small></button>
-    <button class="chip" data-g="roll">Рольставни<small id="g_roll"></small></button>
-  </div>
+<div id="sheet">
+  <div class="grab" id="grab"><i></i></div>
+  <div class="scroll">
+    <div class="price">
+      <div><div class="lbl">Примерная стоимость</div><div class="val" id="price">—</div></div>
+      <div class="area"><b id="area">24 м²</b>площадь</div>
+    </div>
 
-  <h3>Цвет профлиста</h3>
-  <div class="colors" id="colors"></div>
+    <div class="row"><div class="top"><span>Ширина</span><b id="wv"></b></div><input type="range" id="w" min="3" max="10" step="0.5" value="4"></div>
+    <div class="row"><div class="top"><span>Длина</span><b id="lv"></b></div><input type="range" id="l" min="4" max="14" step="0.5" value="6.5"></div>
+    <div class="row"><div class="top"><span>Высота стен</span><b id="hv"></b></div><input type="range" id="h" min="2.4" max="4.5" step="0.1" value="3"></div>
 
-  <h3>Опции</h3>
-  <div class="toggle" id="insul">
-    <div>Утепление стен и крыши<small id="insul_p"></small></div><div class="sw2"></div>
+    <h3>Ворота</h3>
+    <div class="chips" id="gates">
+      <button class="chip on" data-g="swing"><svg viewBox="0 0 34 26"><rect x="3" y="3" width="28" height="21" rx="1"/><path d="M17 3v21M13 14h1M20 14h1"/></svg>Распашные<small id="g_swing"></small></button>
+      <button class="chip" data-g="sect"><svg viewBox="0 0 34 26"><rect x="3" y="3" width="28" height="21" rx="1"/><path d="M3 8.3h28M3 13.6h28M3 18.9h28"/></svg>Секционные<small id="g_sect"></small></button>
+      <button class="chip" data-g="roll"><svg viewBox="0 0 34 26"><rect x="2" y="2" width="30" height="5" rx="1"/><path d="M4 7v17h26V7M4 10h26M4 13h26M4 16h26M4 19h26"/></svg>Рольставни<small id="g_roll"></small></button>
+    </div>
+
+    <h3>Цвет профлиста</h3>
+    <div class="colors" id="colors"></div>
+    <div class="cname" id="cname"></div>
+
+    <h3>Опции</h3>
+    <div class="opt" id="insul"><div><b>Утепление стен и крыши</b><small id="insul_p"></small></div><div class="tg2"></div></div>
+
+    <h3>В стоимость входит</h3>
+    <div class="incl"><div>Бетонная плита</div><div>Каркас из профтрубы</div><div>Профлист с покрытием</div><div>Ворота с замком</div><div>Водосток</div><div>Монтаж и доставка</div></div>
   </div>
 </div>
 <button id="send">Отправить заявку</button>
+<div class="toast" id="toast"></div>
 
 <script type="importmap">
 { "imports": {
-  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
-  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+  "three": "https://cdn.jsdelivr.net/npm/three@0.165.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.165.0/examples/jsm/"
 } }
 </script>
 <script type="module">
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+import { CSS2DRenderer, CSS2DObject } from "three/addons/renderers/CSS2DRenderer.js";
+import { Sky } from "three/addons/objects/Sky.js";
+import { COLORS, makeMaterials, setColor, buildGarage, buildCar, calcPrice, DEFAULT_PRICES } from "./garage.js";
 
 const tg = window.Telegram?.WebApp;
 const inTg = !!(tg && tg.initData);
-if (inTg) { document.body.classList.add("tg"); tg.ready(); tg.expand(); tg.setHeaderColor?.("#0f1115"); tg.setBackgroundColor?.("#0f1115"); }
+if (inTg) {
+  document.body.classList.add("tg");
+  tg.ready(); tg.expand();
+  tg.disableVerticalSwipes?.();
+  tg.setHeaderColor?.("#0c0e12"); tg.setBackgroundColor?.("#0c0e12");
+}
+const haptic = (k = "light") => { try { k === "sel" ? tg?.HapticFeedback?.selectionChanged() : tg?.HapticFeedback?.impactOccurred(k); } catch {} };
 
-// ---- цены: из URL (их подставляет бот из Google-таблицы), иначе дефолт ----
-const P = { fund: 18000, walls: 8800, roof: 8000, roof_k: 1.15, gate: 180000, gate_sect: 280000, gate_roll: 240000,
-            insul: 3200, mount: 25, spread: 10 };
+// цены приходят в ссылке от бота (из Google-таблицы)
+const P = { ...DEFAULT_PRICES };
 const q = new URLSearchParams(location.search);
 for (const k of Object.keys(P)) if (q.has(k) && !isNaN(+q.get(k))) P[k] = +q.get(k);
 
-const COLORS = [
-  ["Графит", "#3b3f45"], ["Шоколад", "#5a3a2a"], ["Синий", "#2f5d8a"], ["Зелёный", "#2f6b45"],
-  ["Вишня", "#7a2530"], ["Серый", "#9aa0a6"], ["Слоновая кость", "#e4dcc5"],
-];
-const state = { w: 4, l: 6, h: 3, gate: "swing", color: 0, insul: false };
-const view = { w: 4, l: 6, h: 3 };   // анимируемые значения
+const state = { w: 4, l: 6.5, h: 3, gate: "swing", color: 0, insul: false };
+const view = { w: 4, l: 6.5, h: 3 };
+const ui = { open: 0, openTarget: 0, night: false, car: true };
 
-// ---- расчёт (та же формула, что в боте) ----
-function calc(s) {
-  const floor = s.w * s.l, walls = 2 * (s.w + s.l) * s.h, roof = floor * P.roof_k;
-  const gate = { swing: P.gate, sect: P.gate_sect, roll: P.gate_roll }[s.gate];
-  let mat = floor * P.fund + walls * P.walls + roof * P.roof + gate;
-  if (s.insul) mat += (walls + roof) * P.insul;
-  const total = mat * (1 + P.mount / 100), sp = P.spread / 100;
-  return { total, lo: Math.round(total * (1 - sp) / 1000) * 1000, hi: Math.round(total * (1 + sp) / 1000) * 1000, floor };
-}
-const rub = x => Math.round(x).toLocaleString("ru-RU").replace(/,/g, " ") + " ₽";
-const short = x => (x / 1e6).toFixed(2).replace(".", ",") + " млн";
-
-// ---- сцена ----
+// ---------- сцена ----------
 const host = document.getElementById("scene");
-const renderer = new THREE.WebGLRenderer({ antialias: true });
+const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 0.85;
 host.appendChild(renderer.domElement);
 
+const labels = new CSS2DRenderer();
+labels.domElement.style.cssText = "position:absolute;top:0;left:0;pointer-events:none";
+host.appendChild(labels.domElement);
+
 const scene = new THREE.Scene();
-scene.background = new THREE.Color("#1a2130");
-scene.fog = new THREE.Fog("#1a2130", 25, 60);
-const camera = new THREE.PerspectiveCamera(40, 1, 0.1, 200);
-camera.position.set(11, 7, 13);
+const camera = new THREE.PerspectiveCamera(38, 1, 0.1, 5000);
+camera.position.set(34, 22, 40);
 
 const controls = new OrbitControls(camera, renderer.domElement);
-controls.enableDamping = true; controls.enablePan = false;
-controls.minDistance = 6; controls.maxDistance = 30; controls.maxPolarAngle = Math.PI * 0.48;
-controls.autoRotate = true; controls.autoRotateSpeed = 0.8;
-controls.target.set(0, 1.5, 0);
-controls.addEventListener("start", () => { controls.autoRotate = false; });
+controls.enableDamping = true; controls.dampingFactor = 0.08; controls.enablePan = false;
+controls.minDistance = 5; controls.maxDistance = 32; controls.maxPolarAngle = Math.PI * 0.485;
+controls.autoRotateSpeed = 0.6;
+controls.target.set(0, 1.6, 0);
+controls.addEventListener("start", () => { controls.autoRotate = false; intro = null; });
 
-scene.add(new THREE.HemisphereLight("#cfe3ff", "#3a3226", 1.1));
-const sun = new THREE.DirectionalLight("#fff1dc", 2.2);
-sun.position.set(8, 14, 6); sun.castShadow = true;
-sun.shadow.mapSize.set(2048, 2048);
-Object.assign(sun.shadow.camera, { left: -12, right: 12, top: 12, bottom: -12 });
+// небо и отражения
+const sky = new Sky(); sky.scale.setScalar(2000); scene.add(sky);
+const su = sky.material.uniforms;
+su.turbidity.value = 2.5; su.rayleigh.value = 2.2; su.mieCoefficient.value = 0.004; su.mieDirectionalG.value = 0.82;
+const sunDir = new THREE.Vector3().setFromSphericalCoords(1, THREE.MathUtils.degToRad(62), THREE.MathUtils.degToRad(145));
+su.sunPosition.value.copy(sunDir);
+const pmrem = new THREE.PMREMGenerator(renderer);
+const envScene = new THREE.Scene(); const sky2 = new Sky(); sky2.scale.setScalar(2000);
+Object.keys(su).forEach((k) => sky2.material.uniforms[k].value = su[k].value);
+envScene.add(sky2);
+const dayEnv = pmrem.fromScene(envScene).texture;
+scene.environment = dayEnv;
+
+const DAY_FOG = new THREE.Color("#c9d3dc"), NIGHT = new THREE.Color("#070b16");
+scene.fog = new THREE.Fog(DAY_FOG, 40, 140);
+
+const hemi = new THREE.HemisphereLight("#dce9ff", "#4a4032", 0.6); scene.add(hemi);
+const sun = new THREE.DirectionalLight("#fff0da", 3.2);
+sun.position.copy(sunDir).multiplyScalar(30); sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048); sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.02;
+Object.assign(sun.shadow.camera, { left: -14, right: 14, top: 14, bottom: -14, near: 1, far: 80 });
 scene.add(sun);
 
-// земля
-const groundTex = (() => {
-  const c = document.createElement("canvas"); c.width = c.height = 256; const g = c.getContext("2d");
-  g.fillStyle = "#3d5a2e"; g.fillRect(0, 0, 256, 256);
-  for (let i = 0; i < 4000; i++) { g.fillStyle = `hsl(${90 + Math.random() * 30},35%,${18 + Math.random() * 18}%)`; g.fillRect(Math.random() * 256, Math.random() * 256, 2, 2); }
-  const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(20, 20); t.colorSpace = THREE.SRGBColorSpace; return t;
+// звёзды для ночи
+const stars = (() => {
+  const p = [];
+  for (let i = 0; i < 1500; i++) { const v = new THREE.Vector3().setFromSphericalCoords(900, Math.acos(Math.random() * 0.95), Math.random() * 6.283); p.push(v.x, v.y, v.z); }
+  const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.Float32BufferAttribute(p, 3));
+  const s = new THREE.Points(g, new THREE.PointsMaterial({ color: "#fff", size: 2, sizeAttenuation: false, fog: false }));
+  s.visible = false; scene.add(s); return s;
 })();
-const ground = new THREE.Mesh(new THREE.CircleGeometry(40, 64), new THREE.MeshStandardMaterial({ map: groundTex, roughness: 1 }));
+
+// земля: трава
+const grass = (() => {
+  const c = document.createElement("canvas"); c.width = c.height = 512; const g = c.getContext("2d");
+  g.fillStyle = "#4a6b34"; g.fillRect(0, 0, 512, 512);
+  for (let i = 0; i < 26000; i++) {
+    g.fillStyle = `hsl(${85 + Math.random() * 35},${30 + Math.random() * 20}%,${16 + Math.random() * 22}%)`;
+    const x = Math.random() * 512, y = Math.random() * 512; g.fillRect(x, y, 1.5, 2 + Math.random() * 3);
+  }
+  const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(30, 30);
+  t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; return t;
+})();
+const ground = new THREE.Mesh(new THREE.CircleGeometry(160, 64), new THREE.MeshStandardMaterial({ map: grass, roughness: 1 }));
 ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; scene.add(ground);
 
-// текстура профлиста: вертикальные трапеции
-function profTex(vertical = true) {
-  const c = document.createElement("canvas"); c.width = 128; c.height = 8; const g = c.getContext("2d");
-  const grd = g.createLinearGradient(0, 0, 128, 0);
-  grd.addColorStop(0, "#fff"); grd.addColorStop(.15, "#fff"); grd.addColorStop(.25, "#9a9a9a");
-  grd.addColorStop(.5, "#c8c8c8"); grd.addColorStop(.6, "#fff"); grd.addColorStop(.85, "#e6e6e6"); grd.addColorStop(1, "#fff");
-  g.fillStyle = grd; g.fillRect(0, 0, 128, 8);
-  const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.colorSpace = THREE.SRGBColorSpace;
-  if (!vertical) t.rotation = Math.PI / 2;
-  return t;
-}
-const wallMat = new THREE.MeshStandardMaterial({ map: profTex(), metalness: .45, roughness: .45, side: THREE.DoubleSide });
-const roofMat = new THREE.MeshStandardMaterial({ map: profTex(), metalness: .5, roughness: .4, side: THREE.DoubleSide });
-const slabMat = new THREE.MeshStandardMaterial({ color: "#9b9890", roughness: .95 });
-const trimMat = new THREE.MeshStandardMaterial({ color: "#d9d9d9", metalness: .6, roughness: .35 });
-const gateMats = {
-  swing: new THREE.MeshStandardMaterial({ map: profTex(), metalness: .45, roughness: .45 }),
-  sect: new THREE.MeshStandardMaterial({ map: profTex(false), color: "#f1f1ee", metalness: .3, roughness: .5 }),
-  roll: new THREE.MeshStandardMaterial({ map: profTex(false), color: "#c9ccd0", metalness: .6, roughness: .35 }),
-};
+// ---------- гараж ----------
+const mats = makeMaterials();
+const holder = new THREE.Group(); scene.add(holder);
+const car = buildCar(); scene.add(car);
+let G = null;
 
-const garage = new THREE.Group(); scene.add(garage);
-const PER_M = 4.5; // волн профлиста на метр
+const dimGroup = new THREE.Group(); scene.add(dimGroup);
+const lineMat = new THREE.LineBasicMaterial({ color: "#ffffff", transparent: true, opacity: 0.75, depthTest: false });
+const mkLabel = () => { const d = document.createElement("div"); d.className = "dim"; return new CSS2DObject(d); };
+const dimLabels = { w: mkLabel(), l: mkLabel(), h: mkLabel() };
+Object.values(dimLabels).forEach((o) => scene.add(o));
 
-function panel(width, height, mat, uv = true) {
-  const geo = new THREE.PlaneGeometry(width, height);
-  if (uv) { const a = geo.attributes.uv; for (let i = 0; i < a.count; i++) a.setXY(i, a.getX(i) * width * PER_M, a.getY(i) * height); }
-  const m = new THREE.Mesh(geo, mat); m.castShadow = m.receiveShadow = true; return m;
+function drawDims() {
+  dimGroup.clear();
+  for (const k of ["w", "l", "h"]) {
+    const [a, b] = G.anchors[k];
+    const pts = [a, b];
+    // засечки на концах
+    const dir = new THREE.Vector3().subVectors(b, a).normalize();
+    const n = k === "h" ? new THREE.Vector3(1, 0, -1).normalize() : new THREE.Vector3(0, 1, 0);
+    for (const p of [a, b]) pts.push(p.clone().addScaledVector(n, -0.12), p.clone().addScaledVector(n, 0.12));
+    const g = new THREE.BufferGeometry().setFromPoints([a, b, pts[2], pts[3], pts[4], pts[5]]);
+    const ln = new THREE.LineSegments(g, lineMat); ln.renderOrder = 10; dimGroup.add(ln);
+    dimLabels[k].position.copy(a).lerp(b, 0.5);
+    dimLabels[k].element.textContent = fmt(view[k]);
+  }
 }
-function box(w, h, d, mat) { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat); m.castShadow = m.receiveShadow = true; return m; }
 
 function build() {
-  garage.traverse(o => { if (o.geometry) o.geometry.dispose(); });
-  garage.clear();
-  const { w, l, h } = view;
-  const slabH = 0.2;
-
-  const slab = box(w + 0.5, slabH, l + 0.5, slabMat); slab.position.y = slabH / 2; garage.add(slab);
-
-  // боковые и задняя стены
-  const left = panel(l, h, wallMat); left.rotation.y = -Math.PI / 2; left.position.set(-w / 2, slabH + h / 2, 0); garage.add(left);
-  const right = panel(l, h, wallMat); right.rotation.y = Math.PI / 2; right.position.set(w / 2, slabH + h / 2, 0); garage.add(right);
-  const back = panel(w, h, wallMat); back.rotation.y = Math.PI; back.position.set(0, slabH + h / 2, -l / 2); garage.add(back);
-
-  // передняя стена с проёмом ворот
-  const gw = Math.min(w - 0.8, 3.5), gh = Math.min(h - 0.35, 2.6);
-  const side = (w - gw) / 2, z = l / 2;
-  const fl = panel(side, h, wallMat); fl.position.set(-w / 2 + side / 2, slabH + h / 2, z); garage.add(fl);
-  const fr = panel(side, h, wallMat); fr.position.set(w / 2 - side / 2, slabH + h / 2, z); garage.add(fr);
-  const ft = panel(gw, h - gh, wallMat); ft.position.set(0, slabH + gh + (h - gh) / 2, z); garage.add(ft);
-
-  // ворота
-  const gm = gateMats[state.gate];
-  if (state.gate === "swing") {
-    for (const s of [-1, 1]) {
-      const leaf = panel(gw / 2 - 0.03, gh - 0.05, gm); leaf.position.set(s * gw / 4, slabH + gh / 2, z + 0.02); garage.add(leaf);
-      const handle = box(0.04, 0.25, 0.05, trimMat); handle.position.set(s * 0.12, slabH + gh / 2, z + 0.06); garage.add(handle);
-    }
-  } else {
-    const g = panel(gw, gh, gm);
-    const a = g.geometry.attributes.uv; for (let i = 0; i < a.count; i++) a.setXY(i, a.getX(i) * gw, a.getY(i) * gh * (state.gate === "roll" ? 9 : 2));
-    g.position.set(0, slabH + gh / 2, z + 0.02); garage.add(g);
-    if (state.gate === "roll") { const cas = box(gw + 0.1, 0.25, 0.25, trimMat); cas.position.set(0, slabH + gh + 0.12, z + 0.12); garage.add(cas); }
-  }
-  // обрамление проёма
-  for (const [px, py, sw, sh] of [[-gw / 2, gh / 2, .06, gh], [gw / 2, gh / 2, .06, gh], [0, gh, gw + .06, .06]]) {
-    const t = box(sw, sh, 0.06, trimMat); t.position.set(px, slabH + py, z + 0.03); garage.add(t);
-  }
-
-  // двускатная крыша вдоль длины
-  const cos = 1 / P.roof_k, ang = Math.acos(Math.min(cos, 0.999)), over = 0.3;
-  const half = w / 2 + over, slope = half / Math.cos(ang), rise = (w / 2) * Math.tan(ang), top = slabH + h + rise;
-  for (const s of [-1, 1]) {
-    const r = panel(l + over * 2, slope, roofMat);
-    r.rotation.order = "YXZ"; r.rotation.y = s * Math.PI / 2; r.rotation.x = -(Math.PI / 2 - ang);
-    r.position.set(s * half / 2, top - (half / 2) * Math.tan(ang), 0);
-    garage.add(r);
-  }
-  const ridge = box(0.12, 0.08, l + over * 2, trimMat); ridge.position.set(0, top + 0.02, 0); garage.add(ridge);
-  // фронтоны
-  const tri = new THREE.Shape(); tri.moveTo(-w / 2, 0); tri.lineTo(w / 2, 0); tri.lineTo(0, rise); tri.closePath();
-  for (const s of [-1, 1]) {
-    const geo = new THREE.ShapeGeometry(tri);
-    const a = geo.attributes.uv; for (let i = 0; i < a.count; i++) a.setXY(i, a.getX(i) * PER_M, a.getY(i));
-    const m = new THREE.Mesh(geo, wallMat); m.castShadow = true; m.position.set(0, slabH + h, s * l / 2); garage.add(m);
-  }
-  // углы
-  for (const [x, zz] of [[-w / 2, l / 2], [w / 2, l / 2], [-w / 2, -l / 2], [w / 2, -l / 2]]) {
-    const c = box(0.07, h, 0.07, trimMat); c.position.set(x, slabH + h / 2, zz); garage.add(c);
-  }
-  controls.target.y = (h + rise) / 2;
+  holder.traverse((o) => { if (o.geometry) o.geometry.dispose(); });
+  holder.clear();
+  G = buildGarage({ ...view, gate: state.gate }, mats, P.roof_k);
+  G.gate.setOpen(easeInOut(ui.open));
+  holder.add(G.group);
+  car.visible = ui.car && view.w >= 2.9 && view.l >= 5.3;
+  car.position.set(0, 0.15, -0.1);
+  applyLights();
+  drawDims();
+  controls.target.y = (view.h + G.size.rise) * 0.45;
 }
 
-function setColor(i) {
-  const c = new THREE.Color(COLORS[i][1]);
-  wallMat.color.copy(c); gateMats.swing.color.copy(c);
-  roofMat.color.copy(c).multiplyScalar(0.8);
+function applyLights() {
+  if (!G) return;
+  const n = ui.night;
+  G.spot.intensity = n ? 45 : 0;
+  mats.lamp.emissiveIntensity = n ? 4 : 0;
+  G.innerLight.intensity = ui.open > 0.05 ? (n ? 14 : 6) * Math.min(1, ui.open * 2) : 0;
 }
 
-// ---- UI ----
-const $ = id => document.getElementById(id);
-const fmt = v => (+v).toFixed(1).replace(".0", "").replace(".", ",") + " м";
-let shown = 0, target = 0;
+function setNight(n) {
+  ui.night = n;
+  sky.visible = !n; stars.visible = n;
+  scene.background = n ? NIGHT : null;
+  scene.fog.color.copy(n ? NIGHT : DAY_FOG);
+  scene.environmentIntensity = n ? 0.18 : 1;
+  hemi.intensity = n ? 0.3 : 0.6;
+  sun.intensity = n ? 0.6 : 3.2;
+  sun.color.set(n ? "#9fb4ff" : "#fff0da");
+  renderer.toneMappingExposure = n ? 1.0 : 0.85;
+  applyLights();
+}
+
+// ---------- UI ----------
+const $ = (id) => document.getElementById(id);
+const fmt = (v) => (Math.round(v * 10) / 10).toString().replace(".", ",") + " м";
+const rub = (x) => Math.round(x).toLocaleString("ru-RU").replace(/[ ,]/g, " ") + " ₽";
+const mln = (x) => (x / 1e6).toFixed(2).replace(".", ",");
+const easeInOut = (t) => t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+let lastCalc = calcPrice(state, P), shownPrice = 0;
+
+function toast(t) { const el = $("toast"); el.textContent = t; el.classList.add("show"); clearTimeout(toast.t); toast.t = setTimeout(() => el.classList.remove("show"), 2200); }
 
 function refresh() {
   for (const k of ["w", "l", "h"]) {
     const el = $(k); $(k + "v").textContent = fmt(el.value);
-    el.style.setProperty("--p", ((el.value - el.min) / (el.max - el.min) * 100) + "%");
+    el.style.setProperty("--p", ((el.value - el.min) / (el.max - el.min)) * 100 + "%");
   }
-  const r = calc(state);
-  target = (r.lo + r.hi) / 2;
-  $("area").textContent = (Math.round(r.floor * 10) / 10).toString().replace(".", ",");
-  lastCalc = r;
-  if (inTg) tg.MainButton.setParams({ text: `Отправить заявку · ${short(r.lo)} – ${short(r.hi)} ₽`, color: "#ff8a1f", text_color: "#111111", is_visible: true });
+  lastCalc = calcPrice(state, P);
+  $("area").textContent = (Math.round(lastCalc.floor * 10) / 10).toString().replace(".", ",") + " м²";
+  $("cname").textContent = COLORS[state.color][0];
+  if (inTg) tg.MainButton.setParams({ text: `Отправить заявку · ${mln(lastCalc.lo)}–${mln(lastCalc.hi)} млн ₽`,
+    color: "#ff8a1f", text_color: "#1a1206", is_visible: true });
 }
-let lastCalc = calc(state);
 
-for (const k of ["w", "l", "h"]) {
-  $(k).addEventListener("input", e => { state[k] = +e.target.value; tg?.HapticFeedback?.selectionChanged(); refresh(); });
-}
-document.querySelectorAll("#gates .chip").forEach(b => b.addEventListener("click", () => {
-  document.querySelectorAll("#gates .chip").forEach(x => x.classList.toggle("on", x === b));
-  state.gate = b.dataset.g; tg?.HapticFeedback?.impactOccurred("light"); build(); refresh();
+for (const k of ["w", "l", "h"]) $(k).addEventListener("input", (e) => { state[k] = +e.target.value; haptic("sel"); refresh(); });
+
+document.querySelectorAll("#gates .chip").forEach((b) => b.addEventListener("click", () => {
+  document.querySelectorAll("#gates .chip").forEach((x) => x.classList.toggle("on", x === b));
+  state.gate = b.dataset.g; haptic(); build(); refresh();
 }));
+
 COLORS.forEach(([name, hex], i) => {
-  const s = document.createElement("div"); s.className = "sw" + (i === 0 ? " on" : ""); s.style.background = hex; s.title = name;
-  s.onclick = () => { document.querySelectorAll(".sw").forEach(x => x.classList.toggle("on", x === s)); state.color = i; setColor(i); tg?.HapticFeedback?.impactOccurred("light"); };
+  const s = document.createElement("div"); s.className = "sw" + (i === state.color ? " on" : ""); s.style.background = hex;
+  s.onclick = () => { document.querySelectorAll(".sw").forEach((x) => x.classList.toggle("on", x === s)); state.color = i; setColor(mats, hex); haptic(); refresh(); };
   $("colors").appendChild(s);
 });
-$("insul").onclick = () => { state.insul = !state.insul; $("insul").classList.toggle("on", state.insul); tg?.HapticFeedback?.impactOccurred("light"); refresh(); };
+
+$("insul").onclick = () => { state.insul = !state.insul; $("insul").classList.toggle("on", state.insul); haptic(); refresh(); if (state.insul) toast("Минвата 100 мм + пароизоляция"); };
+
+$("t_gate").onclick = () => { ui.openTarget = ui.openTarget ? 0 : 1; $("t_gate").classList.toggle("on", !!ui.openTarget); haptic("medium"); };
+$("t_night").onclick = () => { setNight(!ui.night); $("t_night").classList.toggle("on", ui.night); haptic("medium"); if (ui.night) toast("Фонарь над воротами включён"); };
+$("t_dims").onclick = () => { const on = document.body.classList.toggle("nodims"); dimGroup.visible = !on; $("t_dims").classList.toggle("on", !on); haptic(); };
+$("t_car").classList.toggle("on", ui.car);
+$("t_car").onclick = () => { ui.car = !ui.car; $("t_car").classList.toggle("on", ui.car); car.visible = ui.car && view.w >= 2.9 && view.l >= 5.3; haptic();
+  if (ui.car && !ui.openTarget) { ui.openTarget = 1; $("t_gate").classList.add("on"); } };
+
+$("t_ar").onclick = () => {
+  haptic("medium");
+  const p = new URLSearchParams({ w: state.w, l: state.l, h: state.h, gate: state.gate, color: state.color, open: ui.openTarget ? 1 : 0, car: ui.car ? 1 : 0 });
+  const url = new URL("ar.html?" + p, location.href).href;
+  if (inTg) tg.openLink(url, { try_instant_view: false }); else location.href = url;
+};
+
+$("grab").onclick = () => { document.body.classList.toggle("collapsed"); haptic(); };
 
 $("g_swing").textContent = "в базе";
 $("g_sect").textContent = "+" + rub(P.gate_sect - P.gate);
 $("g_roll").textContent = "+" + rub(P.gate_roll - P.gate);
-$("insul_p").textContent = rub(P.insul) + " за м²";
+$("insul_p").textContent = "+" + rub(P.insul) + " за м²";
 
 function send() {
   const data = { ...state, colorName: COLORS[state.color][0], lo: lastCalc.lo, hi: lastCalc.hi };
   if (inTg) { tg.HapticFeedback?.notificationOccurred("success"); tg.sendData(JSON.stringify(data)); }
-  else alert("Откройте из Telegram, чтобы отправить.\n\n" + JSON.stringify(data, null, 2));
+  else toast("Откройте в Telegram, чтобы отправить заявку");
 }
 $("send").onclick = send;
 if (inTg) tg.MainButton.onClick(send);
 
-// ---- цикл ----
+// ---------- цикл ----------
 function resize() {
   const w = host.clientWidth, h = host.clientHeight;
-  renderer.setSize(w, h); camera.aspect = w / h; camera.updateProjectionMatrix();
+  renderer.setSize(w, h); labels.setSize(w, h);
+  camera.aspect = w / h; camera.updateProjectionMatrix();
 }
-addEventListener("resize", resize); resize();
-setColor(0); build(); refresh(); shown = target * 0.6;
+new ResizeObserver(resize).observe(host);
+resize();
+
+setColor(mats, COLORS[state.color][1]);
+setNight(false);
+build(); refresh();
+shownPrice = lastCalc.lo * 0.5;
+
+
+// пролёт камеры при открытии
+let intro = { t: 0, from: camera.position.clone(), to: new THREE.Vector3(10.5, 5.2, 12.5) };
+const clock = new THREE.Clock();
+let first = true;
 
 renderer.setAnimationLoop(() => {
+  const dt = Math.min(clock.getDelta(), 0.1);
+  if (intro) {
+    intro.t = Math.min(1, intro.t + dt / 2.4);
+    const e = 1 - Math.pow(1 - intro.t, 3);
+    camera.position.lerpVectors(intro.from, intro.to, e);
+    if (intro.t >= 1) { intro = null; controls.autoRotate = true; }
+  }
+
   let changed = false;
   for (const k of ["w", "l", "h"]) {
     const d = state[k] - view[k];
-    if (Math.abs(d) > 0.002) { view[k] += d * 0.18; changed = true; } else if (view[k] !== state[k]) { view[k] = state[k]; changed = true; }
+    if (Math.abs(d) > 0.003) { view[k] += d * Math.min(1, dt * 12); changed = true; }
+    else if (view[k] !== state[k]) { view[k] = state[k]; changed = true; }
   }
   if (changed) build();
-  if (Math.abs(target - shown) > 500) { shown += (target - shown) * 0.15; }
-  else shown = target;
-  $("price").textContent = rub(Math.round(shown * (1 - P.spread / 100) / 1000) * 1000) + " – " + rub(Math.round(shown * (1 + P.spread / 100) / 1000) * 1000);
+
+  if (ui.open !== ui.openTarget) {
+    const d = ui.openTarget - ui.open, step = dt / 1.6;
+    ui.open = Math.abs(d) < step ? ui.openTarget : ui.open + Math.sign(d) * step;
+    G.gate.setOpen(easeInOut(ui.open)); applyLights();
+  }
+
+  const mid = (lastCalc.lo + lastCalc.hi) / 2;
+  shownPrice += (mid - shownPrice) * Math.min(1, dt * 8);
+  if (Math.abs(mid - shownPrice) < 300) shownPrice = mid;
+  const sp = P.spread / 100;
+  $("price").textContent = `${mln(shownPrice * (1 - sp))} – ${mln(shownPrice * (1 + sp))} млн ₽`;
+
   controls.update();
   renderer.render(scene, camera);
+  labels.render(scene, camera);
+  if (first) { first = false; setTimeout(() => $("loader").classList.add("hide"), 150); }
 });
 </script>
 </body>

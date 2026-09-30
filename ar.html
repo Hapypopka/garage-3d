@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Гараж в AR</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root { --bg: #0c0e12; --text: #f3f4f6; --hint: #8d93a0; --accent: #ff8a1f; --line: rgba(255,255,255,.08); }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); overflow: hidden;
+    font: 15px/1.4 Manrope, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+  #view { position: fixed; inset: 0; }
+  #view canvas { display: block; }
+  .card { position: fixed; left: 16px; right: 16px; bottom: max(16px, env(safe-area-inset-bottom)); z-index: 5;
+    background: rgba(20,23,29,.9); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
+    border: 1px solid var(--line); border-radius: 22px; padding: 18px; }
+  .card h1 { margin: 0 0 4px; font-size: 20px; font-weight: 800; }
+  .card p { margin: 0 0 14px; color: var(--hint); font-size: 13.5px; }
+  .big { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; padding: 17px; border: 0; border-radius: 16px;
+    font: inherit; font-weight: 800; color: #fff; text-decoration: none; cursor: pointer;
+    background: linear-gradient(135deg, #7b5cff, #2fa8ff); box-shadow: 0 10px 30px rgba(80,120,255,.45); }
+  .big[disabled] { opacity: .5; }
+  .big img { width: 1px; height: 1px; }
+  .note { margin-top: 10px; color: var(--hint); font-size: 12px; text-align: center; }
+
+  /* поверх камеры во время AR */
+  #overlay { display: none; position: fixed; inset: 0; z-index: 10; pointer-events: none; font-family: Manrope, sans-serif; }
+  #overlay.on { display: block; }
+  #hint { position: absolute; top: max(20px, env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); width: max-content; max-width: 90vw;
+    padding: 10px 16px; border-radius: 14px; background: rgba(0,0,0,.6); color: #fff; font-size: 14px; font-weight: 700; text-align: center; }
+  .arbar { position: absolute; bottom: max(24px, env(safe-area-inset-bottom)); left: 0; right: 0; display: flex; justify-content: center; gap: 12px; pointer-events: auto; }
+  .arbtn { width: 58px; height: 58px; border-radius: 50%; border: 0; background: rgba(0,0,0,.55); color: #fff; font-size: 22px; font-weight: 800; }
+  .arbtn.x { background: rgba(255,60,60,.8); }
+</style>
+</head>
+<body>
+<div id="view"></div>
+
+<div class="card" id="card">
+  <h1 id="title">Гараж у вас на участке</h1>
+  <p id="desc">Наведите камеру на землю — гараж встанет в натуральную величину. Отойдите на 6–10 метров, чтобы увидеть целиком.</p>
+  <button class="big" id="go" disabled>Готовим модель…</button>
+  <div class="note" id="note"></div>
+</div>
+
+<div id="overlay">
+  <div id="hint">Медленно поводите телефоном над землёй</div>
+  <div class="arbar">
+    <button class="arbtn" id="rotL">⟲</button>
+    <button class="arbtn x" id="exit">✕</button>
+    <button class="arbtn" id="rotR">⟳</button>
+  </div>
+</div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.165.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.165.0/examples/jsm/"
+} }
+</script>
+<script type="module">
+import * as THREE from "three";
+import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
+import { USDZExporter } from "three/addons/exporters/USDZExporter.js";
+import { COLORS, makeMaterials, setColor, buildGarage, buildCar } from "./garage.js";
+
+const $ = (id) => document.getElementById(id);
+const q = new URLSearchParams(location.search);
+const num = (k, d, lo, hi) => Math.min(hi, Math.max(lo, isNaN(+q.get(k)) || !q.has(k) ? d : +q.get(k)));
+const s = { w: num("w", 4, 2, 12), l: num("l", 6.5, 3, 16), h: num("h", 3, 2, 5),
+            gate: ["swing", "sect", "roll"].includes(q.get("gate")) ? q.get("gate") : "swing" };
+const colorIdx = num("color", 0, 0, COLORS.length - 1) | 0;
+const withCar = q.get("car") !== "0", open = q.get("open") === "1";
+const fmt = (v) => (Math.round(v * 10) / 10).toString().replace(".", ",");
+$("title").textContent = `Гараж ${fmt(s.w)}×${fmt(s.l)} м — у вас на участке`;
+
+// ---------- модель ----------
+const mats = makeMaterials();
+for (const m of Object.values(mats)) m.side = THREE.FrontSide;  // для USDZ и AR снаружи хватает одной стороны
+setColor(mats, COLORS[colorIdx][1]);
+const G = buildGarage(s, mats);
+G.gate.setOpen(open ? 1 : 0);
+const model = new THREE.Group();
+model.add(G.group);
+if (withCar && s.w >= 2.9 && s.l >= 5.3) { const c = buildCar(); c.position.set(0, 0.15, -0.1); model.add(c); }
+if (open) G.innerLight.intensity = 6;
+
+// ---------- превью ----------
+const host = $("view");
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.shadowMap.enabled = true;
+host.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+const pmrem = new THREE.PMREMGenerator(renderer);
+scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+scene.background = new THREE.Color("#0c0e12");
+const camera = new THREE.PerspectiveCamera(40, 1, 0.05, 200);
+camera.position.set(s.w * 2 + 9, s.h * 2 + 4, s.l * 1.8 + 11);
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true; controls.autoRotate = true; controls.autoRotateSpeed = 1; controls.enablePan = false;
+controls.target.set(0, s.h * 0.5, 0);
+scene.environmentIntensity = 0.55;
+
+const sun = new THREE.DirectionalLight("#fff", 2.2); sun.position.set(6, 12, 8); sun.castShadow = true;
+sun.shadow.mapSize.set(1024, 1024); Object.assign(sun.shadow.camera, { left: -10, right: 10, top: 10, bottom: -10 });
+scene.add(sun, new THREE.HemisphereLight("#fff", "#555", 0.6));
+const shadowPlane = new THREE.Mesh(new THREE.PlaneGeometry(40, 40), new THREE.ShadowMaterial({ opacity: 0.35 }));
+shadowPlane.rotation.x = -Math.PI / 2; shadowPlane.receiveShadow = true;
+model.add(shadowPlane);
+scene.add(model);
+
+// прицел для AR
+const reticle = new THREE.Mesh(new THREE.RingGeometry(0.25, 0.32, 40).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: "#ff8a1f" }));
+reticle.matrixAutoUpdate = false; reticle.visible = false; scene.add(reticle);
+
+function resize() { renderer.setSize(innerWidth, innerHeight); camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); }
+addEventListener("resize", resize); resize();
+
+let hitSource = null, placed = false, inAR = false;
+renderer.setAnimationLoop((t, frame) => {
+  if (inAR && frame && hitSource) {
+    const ref = renderer.xr.getReferenceSpace();
+    const hits = frame.getHitTestResults(hitSource);
+    if (hits.length) {
+      reticle.visible = !placed;
+      reticle.matrix.fromArray(hits[0].getPose(ref).transform.matrix);
+      if (!placed) $("hint").textContent = "Нажмите на экран — поставлю гараж сюда";
+    } else reticle.visible = false;
+  } else if (!inAR) controls.update();
+  renderer.render(scene, camera);
+});
+
+// ---------- какой AR доступен ----------
+const ua = navigator.userAgent;
+const isIOS = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+const quickLook = document.createElement("a").relList?.supports?.("ar");
+const go = $("go");
+
+(async () => {
+  const xrOK = navigator.xr && await navigator.xr.isSessionSupported("immersive-ar").catch(() => false);
+  if (xrOK) {
+    go.disabled = false; go.textContent = "📷 Поставить на участок";
+    go.onclick = startXR;
+    return;
+  }
+  if (isIOS || quickLook) {
+    try {
+      const exp = new USDZExporter();
+      const arr = await exp.parseAsync(stripForExport(), { quickLookCompatible: true });
+      const url = URL.createObjectURL(new Blob([arr], { type: "model/vnd.usdz+zip" }));
+      const a = document.createElement("a");
+      a.className = "big"; a.rel = "ar"; a.href = url + "#allowsContentScaling=0";
+      a.innerHTML = '<img alt="">📷 Поставить на участок';
+      go.replaceWith(a);
+      $("note").textContent = "Откроется камера iPhone. Гараж будет в реальном размере.";
+      if (!quickLook) $("note").textContent = "Если камера не открылась — откройте эту ссылку в Safari.";
+    } catch (e) {
+      console.error(e); go.textContent = "Не удалось подготовить модель";
+    }
+    return;
+  }
+  go.textContent = "AR недоступен на этом устройстве";
+  $("note").textContent = /Android/.test(ua)
+    ? "Откройте ссылку в Chrome и установите «Сервисы Google Play для AR»."
+    : "Откройте эту страницу с телефона — iPhone или Android.";
+})();
+
+// в USDZ — только гараж и машина, без тени-заглушки
+function stripForExport() {
+  const g = new THREE.Group();
+  for (const c of model.children) if (c !== shadowPlane) g.add(c.clone());
+  return g;
+}
+
+// ---------- Android: WebXR ----------
+async function startXR() {
+  try {
+    const session = await navigator.xr.requestSession("immersive-ar", {
+      requiredFeatures: ["hit-test"], optionalFeatures: ["dom-overlay"], domOverlay: { root: $("overlay") },
+    });
+    renderer.xr.enabled = true;
+    renderer.xr.setReferenceSpaceType("local");
+    await renderer.xr.setSession(session);
+    inAR = true; placed = false; model.visible = false;
+    scene.background = null;  // отражения оставляем, иначе металл чёрный
+    $("overlay").classList.add("on"); $("card").style.display = "none";
+    $("hint").textContent = "Медленно поводите телефоном над землёй";
+
+    const viewer = await session.requestReferenceSpace("viewer");
+    hitSource = await session.requestHitTestSource({ space: viewer });
+
+    session.addEventListener("select", () => {
+      if (!reticle.visible && !placed) return;
+      if (reticle.visible) {
+        const p = new THREE.Vector3().setFromMatrixPosition(reticle.matrix);
+        model.position.copy(p);
+        const cam = renderer.xr.getCamera().position;
+        model.rotation.y = Math.atan2(cam.x - p.x, cam.z - p.z);  // ворота к зрителю
+        model.visible = true; placed = true; reticle.visible = false;
+        $("hint").textContent = "Готово! Обойдите гараж. Тап — переставить";
+        setTimeout(() => { placed = false; }, 1500);  // даём переставить, но не сразу
+      }
+    });
+    session.addEventListener("end", () => {
+      inAR = false; hitSource = null; renderer.xr.enabled = false;
+      scene.background = new THREE.Color("#0c0e12");
+      model.position.set(0, 0, 0); model.rotation.y = 0; model.visible = true;
+      $("overlay").classList.remove("on"); $("card").style.display = "";
+    });
+    $("exit").onclick = () => session.end();
+    $("rotL").onclick = () => { model.rotation.y += Math.PI / 12; };
+    $("rotR").onclick = () => { model.rotation.y -= Math.PI / 12; };
+    for (const b of ["rotL", "rotR", "exit"]) $(b).addEventListener("beforexrselect", (e) => e.preventDefault());
+  } catch (e) {
+    console.error(e);
+    $("note").textContent = "Не удалось запустить камеру: " + e.message;
+  }
+}
+</script>
+</body>
+</html>
