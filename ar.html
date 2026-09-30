@@ -168,12 +168,14 @@ const go = $("go");
   const android = /Android/.test(ua);
   if (android) {
     // скорее всего встроенный браузер (Telegram и т.п.) — перекидываем в Chrome
-    const a = document.createElement("a");
-    a.className = "big";
-    a.href = `intent://${location.host}${location.pathname}${location.search}#Intent;scheme=https;package=com.android.chrome;end`;
-    a.textContent = "📷 Открыть в Chrome для AR";
-    go.replaceWith(a);
-    $("note").textContent = "Во встроенном браузере камера для AR недоступна. Если вы уже в Chrome — обновите «Сервисы Google Play для AR».";
+    // intent:// встроенный браузер Telegram не открывает — только подсказка и копирование ссылки
+    $("desc").innerHTML = "Нажмите <b>⋮</b> в правом верхнем углу → <b>«Открыть в браузере»</b>. В Chrome включится камера и гараж встанет на участок.";
+    go.disabled = false; go.textContent = "Скопировать ссылку";
+    go.onclick = async () => {
+      try { await navigator.clipboard.writeText(location.href); go.textContent = "Скопировано — вставьте в Chrome"; }
+      catch { prompt("Скопируйте ссылку:", location.href); }
+    };
+    $("note").textContent = "Если вы уже в Chrome — обновите «Сервисы Google Play для AR».";
     return;
   }
   go.textContent = "AR недоступен на этом устройстве";
